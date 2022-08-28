@@ -1,5 +1,3 @@
-use bitvec::vec::BitVec;
-
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)+) => {
@@ -13,72 +11,63 @@ fn main() {
 
     // Parse args for the max
     if args.len() < 2 {
-        error!("Usage:\trust-atomic-primes max [options]\nwhere\n\tmax is an unsigned integer greater than 1\n\toptions are:\n\t\ttime - to time the seive\n\t\tall - to print all instead of just the max");
+        error!("{}", rust_atomic_primes::USAGE);
     }
-    let max = match args[1].replace(',', "").parse::<usize>() {
-        Ok(n) => n,
-        Err(err) => {
-            error!("N must be an unsigned integer\n\nRecieved error:\n\t{}", err);
-        }
-    };
+    let max_arg = args.last().unwrap();
+    let max = max_arg
+        .replace('_', "")
+        .parse::<usize>()
+        .unwrap_or_else(|err| {
+            error!(
+                "N must be an unsigned integer. Recieved: {}\n\nParseIntError:\n\t{}",
+                max_arg, err
+            );
+        });
     if max <= 1 {
-        error!("Max must be greater than 1. Recieved: {}", max);
+        error!("N must be greater than 1. Recieved: {}", max);
     }
 
     // Parse args for options
-    let options = &args[2..];
+    let options = &args[1..args.len() - 1];
     let mut time = false;
     let mut all = false;
     for option in options.iter() {
         match option {
-            _ if option == "time" => time = true,
-            _ if option == "all" => all = true,
+            _ if option == "--time" || option == "-t" => time = true,
+            _ if option == "--all" || option == "-a" => all = true,
             _ => {
                 error!("Invalid option: {}", option);
             }
         }
     }
 
-    let now_option = if time {
+    // Start timing if needed
+    let maybe_start = if time {
         Some(std::time::Instant::now())
     } else {
         None
     };
 
-    let mut prime_bits: BitVec = BitVec::repeat(true, max + 1);
-    let len = prime_bits.len();
+    // Run
+    let prime_bits = rust_atomic_primes::simple_seive_of_eratosthenes(max);
 
-    prime_bits.set(0, false);
-    prime_bits.set(1, false);
+    // Print info
 
-    for num in 2..=(len as f64).sqrt() as usize {
-        if prime_bits[num] {
-            'mul: for factor in num .. {
-                let product = num * factor;
-                if product >= len {
-                    break 'mul;
-                }
-                prime_bits.set(product, false);
-            }
-        }
+    if let Some(start) = maybe_start {
+        println!("Runtime: {:?}", start.elapsed());
     }
 
-    if let Some(now) = now_option {
-        println!("Runtime: {:?}", now.elapsed());
-    }
-    
     if all {
-        let prime_numbers = prime_bits
-            .iter()
-            .by_refs()
-            .enumerate()
-            .fold(Vec::new(), | mut p_nums_accum, (num, prime) | {
+        let prime_numbers = prime_bits.iter().by_refs().enumerate().fold(
+            Vec::new(),
+            |mut p_nums_accum, (num, prime)| {
                 if *prime {
                     p_nums_accum.push(num);
                 }
                 p_nums_accum
-            });
-    
+            },
+        );
+
         println!("Primes less than or equal to {}: {:?}", max, prime_numbers);
     } else {
         let (max_prime, _) = prime_bits
@@ -86,7 +75,7 @@ fn main() {
             .by_vals()
             .enumerate()
             .rev()
-            .find(| (_, prime) | *prime)
+            .find(|(_, prime)| *prime)
             .unwrap();
         println!("Largest prime less than or equal to {}: {}", max, max_prime);
     }
