@@ -49,7 +49,7 @@ fn main() {
     };
 
     // Run
-    let prime_bits = rust_atomic_primes::simple_seive_of_eratosthenes(max);
+    let prime_bits = rust_atomic_primes::simple_soe(max);
 
     // Print info
 
@@ -58,25 +58,10 @@ fn main() {
     }
 
     if all {
-        let prime_numbers = prime_bits.iter().by_refs().enumerate().fold(
-            Vec::new(),
-            |mut p_nums_accum, (num, prime)| {
-                if *prime {
-                    p_nums_accum.push(num);
-                }
-                p_nums_accum
-            },
-        );
-
+        let prime_numbers = rust_atomic_primes::all_primes(&prime_bits);
         println!("Primes less than or equal to {}: {:?}", max, prime_numbers);
     } else {
-        let (max_prime, _) = prime_bits
-            .iter()
-            .by_vals()
-            .enumerate()
-            .rev()
-            .find(|(_, prime)| *prime)
-            .unwrap();
+        let max_prime = rust_atomic_primes::max_prime(&prime_bits);
         println!("Largest prime less than or equal to {}: {}", max, max_prime);
     }
 }
