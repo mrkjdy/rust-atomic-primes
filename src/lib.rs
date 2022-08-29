@@ -74,7 +74,7 @@ mod tests {
     mod data;
     use crate::{all_primes, max_prime, simple_soe};
     use bitvec::vec::BitVec;
-    use data::PrimeData10K;
+    use data::PRIMES_TO_10_000;
 
     const SIEVES: [fn(usize) -> BitVec; 1] = [simple_soe];
 
@@ -88,7 +88,7 @@ mod tests {
         check(
             simple_soe(PrimeData10K::MAX),
             Some(PrimeData10K::MAX_PRIME),
-            &PrimeData10K::ALL_PRIMES,
+            &PRIMES_TO_10_000,
         );
     }
 
