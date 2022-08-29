@@ -74,42 +74,38 @@ mod tests {
     mod data;
     use crate::{all_primes, max_prime, simple_soe};
     use bitvec::vec::BitVec;
-    use data::PrimeData10K;
+    use data::PRIMES_TO_10_000;
 
     const SIEVES: [fn(usize) -> BitVec; 1] = [simple_soe];
 
-    fn check(prime_bits: BitVec, mp: Option<usize>, aps: &[usize]) {
-        assert_eq!(max_prime(&prime_bits), mp);
-        assert_eq!(all_primes(&prime_bits), aps);
+    fn check(prime_bits: &BitVec, mp: Option<usize>, aps: &[usize]) {
+        assert_eq!(max_prime(prime_bits), mp);
+        assert_eq!(all_primes(prime_bits), aps);
     }
 
     #[test]
     fn simple_soe_10_k() {
-        check(
-            simple_soe(PrimeData10K::MAX),
-            Some(PrimeData10K::MAX_PRIME),
-            &PrimeData10K::ALL_PRIMES,
-        );
+        check(&simple_soe(10_000), Some(9_973), &PRIMES_TO_10_000)
     }
 
     #[test]
     fn all_0() {
         for sieve in SIEVES {
-            check(sieve(0), None, &[]);
+            check(&sieve(0), None, &[]);
         }
     }
 
     #[test]
     fn all_1() {
         for sieve in SIEVES {
-            check(sieve(1), None, &[]);
+            check(&sieve(1), None, &[]);
         }
     }
 
     #[test]
     fn all_2() {
         for sieve in SIEVES {
-            check(sieve(2), Some(2), &[2]);
+            check(&sieve(2), Some(2), &[2]);
         }
     }
 }
