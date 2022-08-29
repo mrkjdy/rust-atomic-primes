@@ -23,9 +23,6 @@ fn main() {
                 max_arg, err
             );
         });
-    if max <= 1 {
-        error!("N must be greater than 1. Recieved: {}", max);
-    }
 
     // Parse args for options
     let options = &args[1..args.len() - 1];
@@ -61,7 +58,14 @@ fn main() {
         let prime_numbers = rust_atomic_primes::all_primes(&prime_bits);
         println!("Primes less than or equal to {}: {:?}", max, prime_numbers);
     } else {
-        let max_prime = rust_atomic_primes::max_prime(&prime_bits);
-        println!("Largest prime less than or equal to {}: {}", max, max_prime);
+        let max_prime_string = if let Some(max_prime) = rust_atomic_primes::max_prime(&prime_bits) {
+            format!("{}", max_prime)
+        } else {
+            "None".to_string()
+        };
+        println!(
+            "Largest prime less than or equal to {}: {}",
+            max, max_prime_string
+        );
     }
 }
