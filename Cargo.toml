@@ -7,3 +7,10 @@ edition = "2021"
 
 [dependencies]
 bitvec = "1.0.1"
+
+[dev-dependencies]
+criterion = "0.3.6"
+
+[[bench]]
+name = "bench"
+harness = false
