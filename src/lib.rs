@@ -75,8 +75,11 @@ fn basic_soe_thread(
     let mut prime_bits = BitVec::repeat(true, size);
     if start == 0 {
         prime_bits.set(0, false);
-        if size > 1 {
-            prime_bits.set(1, false);
+    }
+    if 1 >= start {
+        let one_index = 1 - start;
+        if one_index < size {
+            prime_bits.set(one_index, false);
         }
     }
     let max_val = start + size - 1;
@@ -109,6 +112,13 @@ fn basic_soe_thread(
                 break 'mark;
             }
             if product > current_prime {
+                // println!(
+                //     "Thread with start {}: Setting index {} - {} = {}",
+                //     start,
+                //     product,
+                //     start,
+                //     product - start
+                // );
                 prime_bits.set(product - start, false);
             }
         }
@@ -123,25 +133,25 @@ struct SoEThread {
     handle: JoinHandle<BitVec>,
 }
 
-pub fn basic_threaded_soe(max: usize) -> BitVec {
-    let num_threads = 1;
+pub fn basic_threaded_soe(max: usize, num_threads: u8) -> BitVec {
     let len = max + 1;
-    let remainder = usize::from(len % (num_threads as usize) > 0);
+    let remainder = len % (num_threads as usize);
     let chunk_size = len / num_threads as usize;
     let threads: Vec<SoEThread> = (0..num_threads)
         .map(|id| {
             let (current_prime_tx, current_prime_rx) = mpsc::channel();
             let (first_true_tx, first_true_rx) = mpsc::channel();
             let handle = thread::spawn(move || {
-                basic_soe_thread(
-                    current_prime_rx,
-                    first_true_tx,
-                    chunk_size * id as usize,
-                    match id {
-                        0 => chunk_size + remainder,
-                        _ => chunk_size,
-                    },
-                )
+                let start;
+                let size;
+                if id == 0 {
+                    start = 0;
+                    size = chunk_size + remainder;
+                } else {
+                    start = chunk_size * id as usize + remainder;
+                    size = chunk_size;
+                }
+                basic_soe_thread(current_prime_rx, first_true_tx, start, size)
             });
             SoEThread {
                 current_prime_tx,
@@ -187,7 +197,14 @@ mod tests {
     use bitvec::vec::BitVec;
     use data::PRIMES_TO_10_000;
 
-    const SIEVES: [fn(usize) -> BitVec; 2] = [simple_soe, basic_threaded_soe];
+    const SIEVES: [fn(usize) -> BitVec; 6] = [
+        simple_soe,
+        |max: usize| basic_threaded_soe(max, 1),
+        |max: usize| basic_threaded_soe(max, 2),
+        |max: usize| basic_threaded_soe(max, 3),
+        |max: usize| basic_threaded_soe(max, 4),
+        |max: usize| basic_threaded_soe(max, 10),
+    ];
 
     fn check(prime_bits: &BitVec, mp: Option<usize>, aps: &[usize]) {
         assert_eq!(max_prime(prime_bits), mp);
