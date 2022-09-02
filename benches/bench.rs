@@ -1,119 +1,47 @@
-use std::time::Duration;
+use std::{fmt::Display, time::Duration};
 
-use criterion::{criterion_group, criterion_main, Criterion, SamplingMode};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode};
 use rust_atomic_primes::{basic_threaded_soe, simple_soe};
 
-fn bench_1_000(c: &mut Criterion) {
-    let max = 1_000;
-    let mut group = c.benchmark_group(format!("max-{}", max));
-    group.sampling_mode(SamplingMode::Flat).sample_size(50);
-    group.bench_function(&format!("simple_soe({})", max), |b| {
-        b.iter(|| simple_soe(max))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 1)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 1))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 2)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 2))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 3)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 3))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 4)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 4))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 10)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 10))
-    });
-    group.finish();
+struct MaxThreadStruct {
+    max: usize,
+    thread_count: u8,
 }
 
-fn bench_1_000_000(c: &mut Criterion) {
-    let max = 1_000_000;
-    let mut group = c.benchmark_group(format!("max-{}", max));
-    group.sampling_mode(SamplingMode::Flat).sample_size(20);
-    group.bench_function(&format!("simple_soe({})", max), |b| {
-        b.iter(|| simple_soe(max))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 1)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 1))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 2)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 2))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 3)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 3))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 4)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 4))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 10)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 10))
-    });
-    group.finish();
+impl Display for MaxThreadStruct {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}, {}T", self.max, self.thread_count)
+    }
 }
 
-fn bench_100_000_000(c: &mut Criterion) {
-    let max = 100_000_000;
-    let mut group = c.benchmark_group(format!("max-{}", max));
-    group
-        .sampling_mode(SamplingMode::Flat)
-        .sample_size(10)
-        .measurement_time(Duration::from_secs(25));
-    group.bench_function(&format!("simple_soe({})", max), |b| {
-        b.iter(|| simple_soe(max))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 1)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 1))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 2)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 2))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 3)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 3))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 4)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 4))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 10)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 10))
-    });
-    group.finish();
+fn bench(c: &mut Criterion) {
+    let max_size_dur_tuples = [
+        (1_000, 100, 5),
+        (100_000, 100, 5),
+        (10_000_000, 20, 5),
+        (1_000_000_000, 10, 100),
+    ];
+    let thread_counts = [1, 2, 3, 4, 8];
+    for (max, size, dur) in max_size_dur_tuples {
+        let mut group = c.benchmark_group(format!("max {}", max));
+        group
+            .sampling_mode(SamplingMode::Flat)
+            .sample_size(size)
+            .measurement_time(Duration::from_secs(dur));
+        group.bench_with_input(BenchmarkId::new("simple_soe", max), &max, |b, &m| {
+            b.iter(|| simple_soe(m))
+        });
+        for thread_count in thread_counts {
+            let max_thread_struct = MaxThreadStruct { max, thread_count };
+            group.bench_with_input(
+                BenchmarkId::new("basic_threaded_soe", &max_thread_struct),
+                &max_thread_struct,
+                |b, mts| b.iter(|| basic_threaded_soe(mts.max, mts.thread_count)),
+            );
+        }
+        group.finish();
+    }
 }
 
-fn bench_1_000_000_000(c: &mut Criterion) {
-    let max = 1_000_000_000;
-    let mut group = c.benchmark_group(format!("max-{}", max));
-    group
-        .sampling_mode(SamplingMode::Flat)
-        .sample_size(10)
-        .measurement_time(Duration::from_secs(100));
-    group.bench_function(&format!("simple_soe({})", max), |b| {
-        b.iter(|| simple_soe(max))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 1)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 1))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 2)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 2))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 3)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 3))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 4)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 4))
-    });
-    group.bench_function(&format!("basic_threaded_soe({}, 10)", max), |b| {
-        b.iter(|| basic_threaded_soe(max, 10))
-    });
-    group.finish();
-}
-
-criterion_group!(
-    benches,
-    bench_1_000,
-    bench_1_000_000,
-    bench_100_000_000,
-    bench_1_000_000_000
-);
+criterion_group!(benches, bench);
 criterion_main!(benches);
