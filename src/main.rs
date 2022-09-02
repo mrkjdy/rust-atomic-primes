@@ -46,7 +46,7 @@ fn main() {
     };
 
     // Run
-    let prime_bits = rust_atomic_primes::simple_soe(max);
+    let primes = rust_atomic_primes::simple_soe(max);
 
     // Print info
 
@@ -55,10 +55,9 @@ fn main() {
     }
 
     if all {
-        let prime_numbers = rust_atomic_primes::all_primes(&prime_bits);
-        println!("Primes less than or equal to {}: {:?}", max, prime_numbers);
+        println!("Primes less than or equal to {}: {:?}", max, primes);
     } else {
-        let max_prime_string = if let Some(max_prime) = rust_atomic_primes::max_prime(&prime_bits) {
+        let max_prime_string = if let Some(max_prime) = primes.last() {
             format!("{}", max_prime)
         } else {
             "None".to_string()

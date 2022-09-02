@@ -33,7 +33,7 @@ pub fn all_primes(prime_bits: &BitVec) -> Vec<usize> {
         })
 }
 
-pub fn simple_soe(max: usize) -> BitVec {
+pub fn simple_soe(max: usize) -> Vec<usize> {
     let mut prime_bits = BitVec::repeat(true, max + 1);
     let len = prime_bits.len();
 
@@ -41,7 +41,7 @@ pub fn simple_soe(max: usize) -> BitVec {
     prime_bits.set(0, false);
 
     if len < 2 {
-        return prime_bits;
+        return all_primes(&prime_bits);
     }
 
     // One is not prime
@@ -59,7 +59,7 @@ pub fn simple_soe(max: usize) -> BitVec {
         }
     }
 
-    prime_bits
+    all_primes(&prime_bits)
 }
 
 fn usize_div_ceil(numerator: usize, denominator: usize) -> usize {
@@ -112,13 +112,6 @@ fn basic_soe_thread(
                 break 'mark;
             }
             if product > current_prime {
-                // println!(
-                //     "Thread with start {}: Setting index {} - {} = {}",
-                //     start,
-                //     product,
-                //     start,
-                //     product - start
-                // );
                 prime_bits.set(product - start, false);
             }
         }
@@ -133,7 +126,7 @@ struct SoEThread {
     handle: JoinHandle<BitVec>,
 }
 
-pub fn basic_threaded_soe(max: usize, num_threads: u8) -> BitVec {
+pub fn basic_threaded_soe(max: usize, num_threads: u8) -> Vec<usize> {
     let len = max + 1;
     let remainder = len % (num_threads as usize);
     let chunk_size = len / num_threads as usize;
@@ -187,17 +180,40 @@ pub fn basic_threaded_soe(max: usize, num_threads: u8) -> BitVec {
         drop(thread.current_prime_tx);
         all_bits.append(&mut thread.handle.join().unwrap());
     }
-    all_bits
+    all_primes(&all_bits)
 }
+
+// fn cache_sized_soe(max: usize) -> Vec<usize> {
+// good_cache_size = find good cache size
+// checked_up_to = 0
+// create uninitialized bitvec with size good_cache_size min(page size, max)
+// create list of primes to mark
+// 'block: for each good_cache_sized range of numbers up to max
+//   initialize the bitvec (current block) to all true
+//   for each existing prime to mark
+//     mark all multiples within this block up to sqrt max
+//   for each number in checked_up_to through sqrt max
+//     if the current number is not in the current block
+//       break 'block;
+//     if the current number is still true (thus prime)
+//       add the current number to the list of primes to mark
+//       mark all multiples within this block up to sqrt max
+//     increment checked_up_to
+//   for each number in checked_up_to through n
+//     if the current number is not in the current block
+//       break 'block;
+//     if the current number is still true (thus prime)
+//       add the current number to the list of primes that don't need to be marked
+// return primes_to_mark.concat(other primes)
+// }
 
 #[cfg(test)]
 mod tests {
     mod data;
-    use crate::{all_primes, basic_threaded_soe, max_prime, simple_soe};
-    use bitvec::vec::BitVec;
+    use crate::{basic_threaded_soe, simple_soe};
     use data::PRIMES_TO_10_000;
 
-    const SIEVES: [fn(usize) -> BitVec; 6] = [
+    const SIEVES: [fn(usize) -> Vec<usize>; 6] = [
         simple_soe,
         |max: usize| basic_threaded_soe(max, 1),
         |max: usize| basic_threaded_soe(max, 2),
@@ -206,53 +222,55 @@ mod tests {
         |max: usize| basic_threaded_soe(max, 10),
     ];
 
-    fn check(prime_bits: &BitVec, mp: Option<usize>, aps: &[usize]) {
-        assert_eq!(max_prime(prime_bits), mp);
-        assert_eq!(all_primes(prime_bits), aps);
+    fn check(
+        primes: Vec<usize>,
+        expected_largest_prime: Option<&usize>,
+        expected_primes: &[usize],
+    ) {
+        assert_eq!(primes.last(), expected_largest_prime);
+        assert_eq!(primes, expected_primes);
     }
 
     #[test]
     fn simple_soe_10_k() {
-        check(&simple_soe(10_000), Some(9_973), &PRIMES_TO_10_000)
+        check(simple_soe(10_000), Some(&9_973), &PRIMES_TO_10_000)
     }
 
     #[test]
     fn all_0() {
         for sieve in SIEVES {
-            check(&sieve(0), None, &[]);
+            check(sieve(0), None, &[]);
         }
     }
 
     #[test]
     fn all_1() {
         for sieve in SIEVES {
-            check(&sieve(1), None, &[]);
+            check(sieve(1), None, &[]);
         }
     }
 
     #[test]
     fn all_2() {
         for sieve in SIEVES {
-            check(&sieve(2), Some(2), &[2]);
+            check(sieve(2), Some(&2), &[2]);
         }
     }
 
     #[test]
     fn all_10() {
-        const MAX: usize = 10;
         for sieve in SIEVES {
-            check(&sieve(MAX), Some(7), &[2, 3, 5, 7]);
+            check(sieve(10), Some(&7), &[2, 3, 5, 7]);
         }
     }
 
     #[test]
     fn all_1_000_000() {
         const MAX: usize = 1_000_000;
-        let expected_prime_bits = simple_soe(MAX);
-        let expected_max_prime = max_prime(&expected_prime_bits);
-        let expected_all_primes = all_primes(&expected_prime_bits);
+        let expected_primes = simple_soe(MAX);
+        let expected_max_prime = expected_primes.last();
         for sieve in SIEVES {
-            check(&sieve(MAX), expected_max_prime, &expected_all_primes)
+            check(sieve(MAX), expected_max_prime, &expected_primes)
         }
     }
 }
