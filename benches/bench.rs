@@ -1,12 +1,12 @@
 use std::time::Duration;
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion, SamplingMode};
 use rust_atomic_primes::{basic_threaded_soe, simple_soe};
 
 fn bench_1_000(c: &mut Criterion) {
     let max = 1_000;
     let mut group = c.benchmark_group(format!("max-{}", max));
-    group.sample_size(50);
+    group.sampling_mode(SamplingMode::Flat).sample_size(50);
     group.bench_function(&format!("simple_soe({})", max), |b| {
         b.iter(|| simple_soe(max))
     });
@@ -31,7 +31,7 @@ fn bench_1_000(c: &mut Criterion) {
 fn bench_1_000_000(c: &mut Criterion) {
     let max = 1_000_000;
     let mut group = c.benchmark_group(format!("max-{}", max));
-    group.sample_size(50);
+    group.sampling_mode(SamplingMode::Flat).sample_size(20);
     group.bench_function(&format!("simple_soe({})", max), |b| {
         b.iter(|| simple_soe(max))
     });
@@ -57,8 +57,9 @@ fn bench_100_000_000(c: &mut Criterion) {
     let max = 100_000_000;
     let mut group = c.benchmark_group(format!("max-{}", max));
     group
+        .sampling_mode(SamplingMode::Flat)
         .sample_size(10)
-        .measurement_time(Duration::from_secs(12));
+        .measurement_time(Duration::from_secs(25));
     group.bench_function(&format!("simple_soe({})", max), |b| {
         b.iter(|| simple_soe(max))
     });
@@ -84,6 +85,7 @@ fn bench_1_000_000_000(c: &mut Criterion) {
     let max = 1_000_000_000;
     let mut group = c.benchmark_group(format!("max-{}", max));
     group
+        .sampling_mode(SamplingMode::Flat)
         .sample_size(10)
         .measurement_time(Duration::from_secs(100));
     group.bench_function(&format!("simple_soe({})", max), |b| {
@@ -109,9 +111,9 @@ fn bench_1_000_000_000(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    // bench_1_000,
-    // bench_1_000_000,
-    // bench_100_000_000,
+    bench_1_000,
+    bench_1_000_000,
+    bench_100_000_000,
     bench_1_000_000_000
 );
 criterion_main!(benches);
