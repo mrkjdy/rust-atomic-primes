@@ -1,4 +1,5 @@
 use bitvec::vec::BitVec;
+use cache_size::l1_cache_size;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread::{self, JoinHandle};
 
@@ -207,19 +208,81 @@ pub fn basic_threaded_soe(max: usize, num_threads: u8) -> Vec<usize> {
 // return primes_to_mark.concat(other primes)
 // }
 
+fn mark_multiples_up_to(bits: &mut BitVec, number: usize, max: usize, offset: usize) {
+    let first_multiple = match usize_div_ceil(offset, number) {
+        0 => 2 * number,
+        not_zero => number * not_zero,
+    };
+    for multiple in (first_multiple..max).step_by(number) {
+        bits.set(multiple - offset, false);
+    }
+}
+
+pub fn cache_sized_soe(max: usize) -> Vec<usize> {
+    let fast_cache_size = match l1_cache_size() {
+        Some(fcs) => fcs,
+        None => 32768,
+    };
+    let fast_capacity = fast_cache_size * 8;
+    let capacity = if fast_capacity > max {
+        max
+    } else {
+        fast_capacity
+    };
+    let mut bits: BitVec = BitVec::with_capacity(capacity);
+    unsafe {
+        bits.set_len(capacity);
+    }
+    let mut primes_to_mark: Vec<usize> = Vec::new();
+    if max == 0 {
+        return primes_to_mark;
+    }
+    let mut primes_not_to_mark: Vec<usize> = Vec::new();
+    let mut checked_up_to = 2;
+    'chunk: for offset in (0..=max).step_by(capacity) {
+        bits.fill(true);
+        let chunk_max = offset + capacity;
+        for &prime_to_mark in primes_to_mark.iter() {
+            mark_multiples_up_to(&mut bits, prime_to_mark, chunk_max, offset);
+        }
+        while checked_up_to <= (max as f64).sqrt() as usize {
+            if checked_up_to >= chunk_max || checked_up_to < offset {
+                continue 'chunk;
+            }
+            if bits[checked_up_to - offset] {
+                primes_to_mark.push(checked_up_to);
+                mark_multiples_up_to(&mut bits, checked_up_to, chunk_max, offset);
+            }
+            checked_up_to += 1;
+        }
+        while checked_up_to <= max {
+            if checked_up_to >= chunk_max || checked_up_to < offset {
+                continue 'chunk;
+            }
+            if bits[checked_up_to - offset] {
+                primes_not_to_mark.push(checked_up_to);
+            }
+            checked_up_to += 1;
+        }
+    }
+    primes_to_mark.append(&mut primes_not_to_mark);
+    return primes_to_mark;
+}
+
 #[cfg(test)]
 mod tests {
     mod data;
-    use crate::{basic_threaded_soe, simple_soe};
+    use crate::{basic_threaded_soe, cache_sized_soe, simple_soe};
     use data::PRIMES_TO_10_000;
 
-    const SIEVES: [fn(usize) -> Vec<usize>; 6] = [
+    const SIEVES: [fn(usize) -> Vec<usize>; 7] = [
         simple_soe,
         |max: usize| basic_threaded_soe(max, 1),
         |max: usize| basic_threaded_soe(max, 2),
         |max: usize| basic_threaded_soe(max, 3),
         |max: usize| basic_threaded_soe(max, 4),
         |max: usize| basic_threaded_soe(max, 10),
+        cache_sized_soe,
     ];
 
     fn check(
@@ -261,6 +324,16 @@ mod tests {
     fn all_10() {
         for sieve in SIEVES {
             check(sieve(10), Some(&7), &[2, 3, 5, 7]);
+        }
+    }
+
+    #[test]
+    fn all_100() {
+        const MAX: usize = 100;
+        let expected_primes = simple_soe(MAX);
+        let expected_max_prime = expected_primes.last();
+        for sieve in SIEVES {
+            check(sieve(MAX), expected_max_prime, &expected_primes);
         }
     }
 
